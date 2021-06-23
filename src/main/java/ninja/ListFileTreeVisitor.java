@@ -31,6 +31,7 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
     private final int limit;
     private final String marker;
     private String prefix;
+    private final File folder;
     private final boolean useLimit;
     private final boolean usePrefix;
     private boolean markerReached;
@@ -41,11 +42,13 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
     protected ListFileTreeVisitor(XMLStructuredOutput output,
                                   int limit,
                                   @Nullable String marker,
-                                  @Nullable String prefix) {
+                                  @Nullable String prefix,
+                                  File folder) {
         this.output = output;
         this.limit = limit;
         this.marker = marker;
         this.prefix = prefix;
+        this.folder = folder;
         objectCount = new Counter();
         useLimit = limit > 0;
         usePrefix = Strings.isFilled(prefix);
@@ -56,17 +59,18 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
     public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
         File file = path.toFile();
         String name = file.getName();
+        String fullName = StoredObject.getFullName(folder, file);
 
         if (!file.isFile() || name.startsWith("$")) {
             return FileVisitResult.CONTINUE;
         }
         if (!markerReached) {
-            if (marker.equals(name)) {
+            if (marker.equals(fullName) || marker.equals(name)) {
                 markerReached = true;
             }
         } else {
-            StoredObject object = new StoredObject(file);
-            if (useLimit && (!usePrefix || name.startsWith(prefix))) {
+            StoredObject object = new StoredObject(folder, file);
+            if (useLimit && (!usePrefix || fullName.startsWith(prefix))) {
                 long numObjects = objectCount.inc();
                 if (numObjects <= limit) {
                     output.beginObject("Contents");

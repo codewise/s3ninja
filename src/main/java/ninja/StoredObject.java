@@ -40,9 +40,9 @@ public class StoredObject {
      *
      * @param file the contents of the object.
      */
-    public StoredObject(File file) {
+    public StoredObject(File folder, File file) {
         this.file = file;
-        this.encodedKey = file.getName();
+        this.encodedKey = encodeKey(getFullName(folder, file));
         this.key = decodeKey(this.encodedKey);
 
         if (!Strings.areEqual(this.encodedKey, encodeKey(this.key))) {
@@ -52,14 +52,20 @@ public class StoredObject {
         }
     }
 
-    /**
-     * Creates a new object within the given bucket folder and the given key.
-     *
-     * @param folder the bucket's folder
-     * @param key    the object's key
-     */
-    public StoredObject(File folder, String key) {
-        this(new File(folder, encodeKey(key)));
+    public static StoredObject inFolder(File folder, String key) {
+        return new StoredObject(folder, new File(folder, key));
+    }
+
+    public static String getFullName(File folder, File path) {
+        if (folder != null) {
+            String folderAbsolutePath = folder.getAbsolutePath();
+            String absolutePath = path.getAbsolutePath();
+
+            if (absolutePath.startsWith(folderAbsolutePath)) {
+                return absolutePath.substring(folderAbsolutePath.length() + 1);
+            }
+        }
+        return path.toPath().getFileName().toString();
     }
 
     /**

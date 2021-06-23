@@ -13,6 +13,7 @@ import sirius.kernel.cache.CacheManager;
 import sirius.kernel.commons.Limit;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.health.Exceptions;
+import sirius.kernel.health.Log;
 import sirius.kernel.xml.Attribute;
 import sirius.kernel.xml.XMLStructuredOutput;
 
@@ -40,6 +41,7 @@ import java.util.stream.Stream;
  * Internally a bucket is just a directory within the base directory.
  */
 public class Bucket {
+    protected static final Log LOG = Log.get("bucket");
 
     /**
      * Enforces the <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html">official rules</a>
@@ -177,7 +179,7 @@ public class Bucket {
      * @param prefix limits the response to keys that begin with the specified prefix
      */
     public void outputObjects(XMLStructuredOutput output, int limit, @Nullable String marker, @Nullable String prefix) {
-        ListFileTreeVisitor visitor = new ListFileTreeVisitor(output, limit, marker, prefix);
+        ListFileTreeVisitor visitor = new ListFileTreeVisitor(output, limit, marker, prefix, folder);
 
         output.beginOutput("ListBucketResult", Attribute.set("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/"));
         output.property("Name", getName());
@@ -205,8 +207,8 @@ public class Bucket {
             throw new IOException("Directory expected.");
         }
 
-        try (Stream<Path> children = Files.list(path)) {
-            children.filter(p -> filterObjects(p.toFile())).sorted(Bucket::compareUtf8Binary).forEach(p -> {
+        try (Stream<Path> children = Files.walk(path)) {
+            children.filter(p -> filterObjects(p.toFile())).sorted(this::compareUtf8Binary).forEach(p -> {
                 try {
                     BasicFileAttributes attrs = Files.readAttributes(p, BasicFileAttributes.class);
                     visitor.visitFile(p, attrs);
@@ -217,9 +219,9 @@ public class Bucket {
         }
     }
 
-    private static int compareUtf8Binary(Path p1, Path p2) {
-        String s1 = StoredObject.decodeKey(p1.getFileName().toString());
-        String s2 = StoredObject.decodeKey(p2.getFileName().toString());
+    private int compareUtf8Binary(Path p1, Path p2) {
+        String s1 = StoredObject.decodeKey(StoredObject.getFullName(folder, p1.toFile()));
+        String s2 = StoredObject.decodeKey(StoredObject.getFullName(folder, p2.toFile()));
 
         byte[] b1 = s1.getBytes(StandardCharsets.UTF_8);
         byte[] b2 = s2.getBytes(StandardCharsets.UTF_8);
@@ -291,7 +293,7 @@ public class Bucket {
                             .handle();
         }
 
-        return new StoredObject(folder, key);
+        return StoredObject.inFolder(folder, key);
     }
 
     /**
@@ -303,13 +305,13 @@ public class Bucket {
      * @return all files meeting the query, restricted by the limit
      */
     public List<StoredObject> getObjects(@Nullable String query, Limit limit) {
-        try (Stream<Path> stream = Files.list(folder.toPath())) {
+        try (Stream<Path> stream = Files.walk(folder.toPath())) {
             return stream.filter(p -> filterObjects(p.toFile()))
-                         .sorted(Bucket::compareUtf8Binary)
+                         .sorted(this::compareUtf8Binary)
                          .map(Path::toFile)
                          .filter(currentFile -> isMatchingObject(query, currentFile))
                          .filter(limit.asPredicate())
-                         .map(StoredObject::new)
+                         .map(file -> new StoredObject(folder, file))
                          .collect(Collectors.toList());
         } catch (IOException e) {
             throw Exceptions.handle(e);
@@ -333,9 +335,11 @@ public class Bucket {
     }
 
     private boolean isMatchingObject(@Nullable String query, File currentFile) {
-        return (Strings.isEmpty(query) || currentFile.getName().contains(query)) && currentFile.isFile() && !currentFile
-                .getName()
-                .startsWith("$");
+        String currentFileName = StoredObject.getFullName(folder, currentFile);
+
+        return (Strings.isEmpty(query) || currentFileName.contains(query))
+               && currentFile.isFile()
+               && !currentFileName.startsWith("$");
     }
 
     protected int getVersion() {
@@ -390,7 +394,7 @@ public class Bucket {
         }
 
         // ignore files not residing in our own folder
-        if (!folder.equals(file.getParentFile())) {
+        if (!file.toPath().startsWith(folder.toPath())) {
             return false;
         }
 
