@@ -13,7 +13,6 @@ import sirius.kernel.cache.CacheManager;
 import sirius.kernel.commons.Limit;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.health.Exceptions;
-import sirius.kernel.health.Log;
 import sirius.kernel.xml.Attribute;
 import sirius.kernel.xml.XMLStructuredOutput;
 
@@ -41,7 +40,6 @@ import java.util.stream.Stream;
  * Internally a bucket is just a directory within the base directory.
  */
 public class Bucket {
-    protected static final Log LOG = Log.get("bucket");
 
     /**
      * Enforces the <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html">official rules</a>
@@ -293,7 +291,7 @@ public class Bucket {
                             .handle();
         }
 
-        return StoredObject.inFolder(folder, key);
+        return StoredObject.fromKey(folder, key);
     }
 
     /**
@@ -311,7 +309,7 @@ public class Bucket {
                          .map(Path::toFile)
                          .filter(currentFile -> isMatchingObject(query, currentFile))
                          .filter(limit.asPredicate())
-                         .map(file -> new StoredObject(folder, file))
+                         .map(file -> StoredObject.fromFile(folder, file))
                          .collect(Collectors.toList());
         } catch (IOException e) {
             throw Exceptions.handle(e);

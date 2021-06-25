@@ -69,7 +69,7 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
                 markerReached = true;
             }
         } else {
-            StoredObject object = new StoredObject(folder, file);
+            StoredObject object = StoredObject.fromFile(folder, file);
             if (useLimit && (!usePrefix || fullName.startsWith(prefix))) {
                 long numObjects = objectCount.inc();
                 if (numObjects <= limit) {
