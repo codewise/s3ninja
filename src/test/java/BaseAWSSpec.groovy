@@ -171,6 +171,36 @@ abstract class BaseAWSSpec extends BaseSpecification {
         summaries.get(1).getKey() == key2
     }
 
+    def "PUT and then LIST work as expected for empty prefix"() {
+        given:
+        def bucketName = DEFAULT_BUCKET_NAME
+        def key1 = DEFAULT_KEY + "/Eins"
+        def key2 = DEFAULT_KEY + "/Zwei"
+        def client = getClient()
+        when:
+        if (client.doesBucketExist(bucketName)) {
+            client.deleteBucket(bucketName)
+        }
+        client.createBucket(bucketName)
+        and:
+        client.putObject(
+                bucketName,
+                key1,
+                new ByteArrayInputStream("Eins".getBytes(Charsets.UTF_8)),
+                new ObjectMetadata())
+        client.putObject(
+                bucketName,
+                key2,
+                new ByteArrayInputStream("Zwei".getBytes(Charsets.UTF_8)),
+                new ObjectMetadata())
+        then:
+        def listing = client.listObjects(bucketName, "")
+        def summaries = listing.getObjectSummaries()
+        summaries.size() == 2
+        summaries.get(0).getKey() == key1
+        summaries.get(1).getKey() == key2
+    }
+
     def "PUT and then DELETE work as expected"() {
         given:
         def bucketName = DEFAULT_BUCKET_NAME

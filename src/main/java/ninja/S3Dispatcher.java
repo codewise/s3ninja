@@ -228,7 +228,7 @@ public class S3Dispatcher implements WebDispatcher {
             return DispatchDecision.CONTINUE;
         }
 
-        if (Strings.isFilled(request.query)) {
+        if (Strings.isFilled(request.query) && !Strings.areEqual(request.query, "prefix")) {
             forwardQueryToSynthesizer(webContext, request);
             return DispatchDecision.DONE;
         }
