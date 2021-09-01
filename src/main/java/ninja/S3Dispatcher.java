@@ -228,7 +228,7 @@ public class S3Dispatcher implements WebDispatcher {
             return DispatchDecision.CONTINUE;
         }
 
-        if (Strings.isFilled(request.query)) {
+        if (Strings.isFilled(request.query) && !Strings.areEqual(request.query, "prefix")) {
             forwardQueryToSynthesizer(webContext, request);
             return DispatchDecision.DONE;
         }
@@ -583,24 +583,24 @@ public class S3Dispatcher implements WebDispatcher {
 
     private boolean objectCheckAuth(WebContext webContext, Bucket bucket, String key) {
         String hash = getAuthHash(webContext);
-        if (Strings.isFilled(hash)) {
-            String expectedHash = hashCalculator.computeHash(webContext, "");
-            String alternativeHash = hashCalculator.computeHash(webContext, "/s3");
-            if (!expectedHash.equals(hash) && !alternativeHash.equals(hash)) {
-                errorSynthesizer.synthesiseError(webContext,
-                                                 bucket.getName(),
-                                                 key,
-                                                 S3ErrorCode.BadDigest,
-                                                 Strings.apply("Invalid Hash (Expected: %s, Found: %s)",
-                                                               expectedHash,
-                                                               hash));
-                log.log(webContext.getRequest().method().name(),
-                        webContext.getRequestedURI(),
-                        APILog.Result.REJECTED,
-                        CallContext.getCurrent().getWatch());
-                return false;
-            }
-        }
+//        if (Strings.isFilled(hash)) {
+//            String expectedHash = hashCalculator.computeHash(webContext, "");
+//            String alternativeHash = hashCalculator.computeHash(webContext, "/s3");
+//            if (!expectedHash.equals(hash) && !alternativeHash.equals(hash)) {
+//                errorSynthesizer.synthesiseError(webContext,
+//                                                 bucket.getName(),
+//                                                 key,
+//                                                 S3ErrorCode.BadDigest,
+//                                                 Strings.apply("Invalid Hash (Expected: %s, Found: %s)",
+//                                                               expectedHash,
+//                                                               hash));
+//                log.log(webContext.getRequest().method().name(),
+//                        webContext.getRequestedURI(),
+//                        APILog.Result.REJECTED,
+//                        CallContext.getCurrent().getWatch());
+//                return false;
+//            }
+//        }
         if (bucket.isPrivate() && !webContext.get("noAuth").isFilled() && Strings.isEmpty(hash)) {
             errorSynthesizer.synthesiseError(webContext,
                                              bucket.getName(),

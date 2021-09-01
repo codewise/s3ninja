@@ -9,6 +9,6 @@
         <w:menuItem title="Supported API" url="/ui?api"/>
     </i:block>
     <i:block name="right">
-        <w:menuItem title="F**k me on GitHub" url="https://github.com/scireum/s3ninja" />
+        <w:menuItem title="Code me wisely on GitHub" url="https://github.com/codewise/s3ninja" />
     </i:block>
 </i:switch>
