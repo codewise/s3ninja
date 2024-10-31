@@ -31,6 +31,7 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
     private final int limit;
     private final String marker;
     private final String prefix;
+    private final String encodedPrefix;
     private final boolean useLimit;
     private final boolean usePrefix;
     private boolean markerReached;
@@ -46,6 +47,7 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
         this.limit = limit;
         this.marker = marker;
         this.prefix = prefix;
+        this.encodedPrefix = StoredObject.encodeKey(prefix);
         objectCount = new Counter();
         useLimit = limit > 0;
         usePrefix = Strings.isFilled(prefix);
@@ -66,7 +68,7 @@ class ListFileTreeVisitor extends SimpleFileVisitor<Path> {
             }
         } else {
             StoredObject object = new StoredObject(file);
-            if (useLimit && (!usePrefix || name.startsWith(prefix))) {
+            if (useLimit && (!usePrefix || name.startsWith(prefix) || name.startsWith(encodedPrefix))) {
                 long numObjects = objectCount.inc();
                 if (numObjects <= limit) {
                     output.beginObject("Contents");

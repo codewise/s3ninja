@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.ResponseHeaderOverrides
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder
+import com.google.common.base.Charsets
 import com.google.common.io.ByteStreams
 import com.google.common.io.Files
 import sirius.kernel.BaseSpecification
@@ -66,6 +67,66 @@ abstract class BaseAWSSpec extends BaseSpecification {
         expect:
         !client.doesBucketExist(bucketName)
         !client.doesBucketExistV2(bucketName)
+    }
+
+    def "PUT and then LIST work as expected for prefix with slash"() {
+        given:
+        def bucketName = DEFAULT_BUCKET_NAME
+        def key1 = DEFAULT_KEY + "/Eins"
+        def key2 = DEFAULT_KEY + "/Zwei"
+        def client = getClient()
+        when:
+        if (client.doesBucketExist(bucketName)) {
+            client.deleteBucket(bucketName)
+        }
+        client.createBucket(bucketName)
+        and:
+        client.putObject(
+                bucketName,
+                key1,
+                new ByteArrayInputStream("Eins".getBytes(Charsets.UTF_8)),
+                new ObjectMetadata())
+        client.putObject(
+                bucketName,
+                key2,
+                new ByteArrayInputStream("Zwei".getBytes(Charsets.UTF_8)),
+                new ObjectMetadata())
+        then:
+        def listing = client.listObjects(bucketName, "key/")
+        def summaries = listing.getObjectSummaries()
+        summaries.size() == 2
+        summaries.get(0).getKey() == key1
+        summaries.get(1).getKey() == key2
+    }
+
+    def "PUT and then LIST work as expected for empty prefix"() {
+        given:
+        def bucketName = DEFAULT_BUCKET_NAME
+        def key1 = DEFAULT_KEY + "/Eins"
+        def key2 = DEFAULT_KEY + "/Zwei"
+        def client = getClient()
+        when:
+        if (client.doesBucketExist(bucketName)) {
+            client.deleteBucket(bucketName)
+        }
+        client.createBucket(bucketName)
+        and:
+        client.putObject(
+                bucketName,
+                key1,
+                new ByteArrayInputStream("Eins".getBytes(Charsets.UTF_8)),
+                new ObjectMetadata())
+        client.putObject(
+                bucketName,
+                key2,
+                new ByteArrayInputStream("Zwei".getBytes(Charsets.UTF_8)),
+                new ObjectMetadata())
+        then:
+        def listing = client.listObjects(bucketName, "")
+        def summaries = listing.getObjectSummaries()
+        summaries.size() == 2
+        summaries.get(0).getKey() == key1
+        summaries.get(1).getKey() == key2
     }
 
     def "PUT and then HEAD bucket as expected"() {
