@@ -491,14 +491,14 @@ public class S3Dispatcher implements WebDispatcher {
                 webContext.respondWith().status(HttpResponseStatus.OK);
             }
         } else if (HttpMethod.PUT.equals(method)) {
-            if (bucket.exists()) {
-                signalObjectError(webContext,
-                                  bucketName,
-                                  null,
-                                  S3ErrorCode.BucketAlreadyOwnedByYou,
-                                  ERROR_BUCKET_ALREADY_OWNED_BY_YOU);
-                return;
-            }
+//            if (bucket.exists()) {
+//                signalObjectError(webContext,
+//                                  bucketName,
+//                                  null,
+//                                  S3ErrorCode.BucketAlreadyOwnedByYou,
+//                                  ERROR_BUCKET_ALREADY_OWNED_BY_YOU);
+//                return;
+//            }
 
             if (!bucket.create()) {
                 signalObjectError(webContext, bucketName, null, S3ErrorCode.InternalError, ERROR_FILE_SYSTEM_ACCESS);
