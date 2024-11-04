@@ -38,16 +38,18 @@ public class StoredObject {
     private final String key;
 
     private final String encodedKey;
+    private final File encodedFile;
 
     /**
      * Creates a new object from the given file.
      *
      * @param file the contents of the object.
      */
-    public StoredObject(File file) {
+    public StoredObject(File file, File encodedFile, String encodedKey, String key) {
         this.file = file;
-        this.encodedKey = file.getName();
-        this.key = decodeKey(this.encodedKey);
+        this.encodedFile = encodedFile;
+        this.encodedKey = encodedKey;
+        this.key = key;
 
         if (!Strings.areEqual(this.encodedKey, encodeKey(this.key))) {
             throw Exceptions.createHandled()
@@ -56,14 +58,44 @@ public class StoredObject {
         }
     }
 
+
+    public static StoredObject fromFile(File folder, File file) {
+        String encodedKey = getFullName(folder, file);
+
+        if (!file.toPath().getParent().equals(folder.toPath())) {
+            encodedKey = encodeKey(encodedKey);
+        }
+
+        String decodedKey = decodeKey(encodedKey);
+
+        return new StoredObject(file, null, encodedKey, decodedKey);
+    }
+
     /**
      * Creates a new object within the given bucket folder and the given key.
      *
      * @param folder the bucket's folder
      * @param key    the object's key
      */
-    public StoredObject(File folder, String key) {
-        this(new File(folder, encodeKey(key)));
+    public static StoredObject fromKey(File folder, String key) {
+        File file = new File(folder, key);
+        File encodedFile = new File(folder, encodeKey(key));
+        String encodedKey = getFullName(folder, encodedFile);
+        String decodedKey = decodeKey(encodedKey);
+
+        return new StoredObject(file, encodedFile, encodedKey, decodedKey);
+    }
+
+    public static String getFullName(File folder, File path) {
+        if (folder != null) {
+            String folderAbsolutePath = folder.getAbsolutePath();
+            String absolutePath = path.getAbsolutePath();
+
+            if (absolutePath.startsWith(folderAbsolutePath)) {
+                return absolutePath.substring(folderAbsolutePath.length() + 1);
+            }
+        }
+        return path.toPath().getFileName().toString();
     }
 
     /**
@@ -100,6 +132,15 @@ public class StoredObject {
     }
 
     /**
+     * Returns the name of the object.
+     *
+     * @return the name of the object
+     */
+    public String getDecodedKey() {
+        return StoredObject.decodeKey(getKey());
+    }
+
+    /**
      * Returns the encoded name of the object.
      *
      * @return the encoded name of the object
@@ -117,15 +158,9 @@ public class StoredObject {
         return NLS.formatSize(getSizeBytes());
     }
 
-    /**
-     * Returns the size of the object in bytes.
-     *
-     * @return the byte-size of the object
-     */
     public long getSizeBytes() {
-        return file.length();
+        return selectFile().length();
     }
-
     /**
      * Returns the object's date of last modification.
      *
@@ -141,14 +176,14 @@ public class StoredObject {
      * @return the last modification date as {@link Instant}
      */
     public Instant getLastModifiedInstant() {
-        return Instant.ofEpochMilli(file.lastModified());
+        return Instant.ofEpochMilli(selectFile().lastModified());
     }
 
     /**
      * Deletes the object.
      */
     public void delete() {
-        Files.delete(file);
+        Files.delete(selectFile());
         Files.delete(getPropertiesFile());
     }
 
@@ -158,7 +193,7 @@ public class StoredObject {
      * @return the underlying file containing the stored contents
      */
     public File getFile() {
-        return file;
+        return selectFile();
     }
 
     /**
@@ -167,7 +202,7 @@ public class StoredObject {
      * @return <b>true</b> if the object exists, <b>false</b> else
      */
     public boolean exists() {
-        return file.exists();
+        return selectFile().exists();
     }
 
     /**
@@ -176,7 +211,7 @@ public class StoredObject {
      * @return the underlying file used to store the meta infos
      */
     public File getPropertiesFile() {
-        return new File(file.getParentFile(), "$" + file.getName() + ".properties");
+        return new File(selectFile().getParentFile(), "$" + selectFile().getName() + ".properties");
     }
 
     /**
@@ -250,6 +285,14 @@ public class StoredObject {
         Map<String, String> fileProperties = getProperties();
         fileProperties.put(DELETED_MARKER, "true");
         setProperties(fileProperties);
+    }
+
+    private File selectFile() {
+        if (file != null && file.exists()) {
+            return file;
+        }
+
+        return encodedFile;
     }
 
     /**
