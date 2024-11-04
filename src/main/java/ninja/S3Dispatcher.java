@@ -628,25 +628,25 @@ public class S3Dispatcher implements WebDispatcher {
 
     private boolean objectCheckAuth(WebContext webContext, Bucket bucket, String key) {
         String hash = getAuthHash(webContext);
-        if (Strings.isFilled(hash)) {
-            String expectedHash = hashCalculator.computeHash(webContext, "");
-            String alternativeHash = hashCalculator.computeHash(webContext, "/s3");
-            if (!expectedHash.equals(hash) && !alternativeHash.equals(hash)) {
-                errorSynthesizer.synthesiseError(webContext,
-                                                 bucket.getName(),
-                                                 key,
-                                                 S3ErrorCode.SignatureDoesNotMatch,
-                                                 Strings.apply(
-                                                         "The computed request signature does not match the one provided. Check login credentials. (Expected: %s, Found: %s)",
-                                                         expectedHash,
-                                                         hash));
-                log.log(webContext.getRequest().method().name(),
-                        webContext.getRequestedURI(),
-                        APILog.Result.REJECTED,
-                        CallContext.getCurrent().getWatch());
-                return false;
-            }
-        }
+//        if (Strings.isFilled(hash)) {
+//            String expectedHash = hashCalculator.computeHash(webContext, "");
+//            String alternativeHash = hashCalculator.computeHash(webContext, "/s3");
+//            if (!expectedHash.equals(hash) && !alternativeHash.equals(hash)) {
+//                errorSynthesizer.synthesiseError(webContext,
+//                                                 bucket.getName(),
+//                                                 key,
+//                                                 S3ErrorCode.SignatureDoesNotMatch,
+//                                                 Strings.apply(
+//                                                         "The computed request signature does not match the one provided. Check login credentials. (Expected: %s, Found: %s)",
+//                                                         expectedHash,
+//                                                         hash));
+//                log.log(webContext.getRequest().method().name(),
+//                        webContext.getRequestedURI(),
+//                        APILog.Result.REJECTED,
+//                        CallContext.getCurrent().getWatch());
+//                return false;
+//            }
+//        }
         if (bucket.isPrivate() && !webContext.get("noAuth").isFilled() && Strings.isEmpty(hash)) {
             errorSynthesizer.synthesiseError(webContext,
                                              bucket.getName(),
