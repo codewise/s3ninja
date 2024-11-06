@@ -157,7 +157,7 @@ public class S3Dispatcher implements WebDispatcher {
     static {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 //        builder.add(".localhost");
-//        builder.add(".127.0.0.1");
+        builder.add(".127.0.0.1");
 
         try {
             InetAddress myself = InetAddress.getLocalHost();
@@ -295,19 +295,19 @@ public class S3Dispatcher implements WebDispatcher {
         String host = hostAndPort.getFirst();
 
         // check whether the host contains a subdomain by matching against the list of local domains
-//        if (Strings.isFilled(host)) {
-//            for (String domain : DOMAINS) {
-//                int length = host.length() - domain.length();
-//                if (host.endsWith(domain) && length > 0) {
-//                    S3Request request = new S3Request();
-//                    request.bucket = host.substring(0, length);
-//                    request.key = uri;
-//                    request.uri = request.bucket + "/" + request.key;
-//                    request.query = query;
-//                    return request;
-//                }
-//            }
-//        }
+        if (Strings.isFilled(host)) {
+            for (String domain : DOMAINS) {
+                int length = host.length() - domain.length();
+                if (host.endsWith(domain) && length > 0) {
+                    S3Request request = new S3Request();
+                    request.bucket = host.substring(0, length);
+                    request.key = uri;
+                    request.uri = request.bucket + "/" + request.key;
+                    request.query = query;
+                    return request;
+                }
+            }
+        }
 
         Tuple<String, String> bucketAndKey = Strings.split(uri, "/");
 
