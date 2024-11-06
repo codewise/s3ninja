@@ -156,7 +156,7 @@ public class S3Dispatcher implements WebDispatcher {
 
     static {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-        builder.add(".localhost");
+//        builder.add(".localhost");
         builder.add(".127.0.0.1");
 
         try {
