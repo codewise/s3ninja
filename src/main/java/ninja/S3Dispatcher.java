@@ -469,24 +469,7 @@ public class S3Dispatcher implements WebDispatcher {
             if (!bucket.exists()) {
                 signalObjectError(webContext, bucketName, null, S3ErrorCode.NoSuchBucket, ERROR_BUCKET_DOES_NOT_EXIST);
             } else {
-                if (bucket.countObjects("") > 0) {
-                    signalObjectError(webContext,
-                                      bucketName,
-                                      null,
-                                      S3ErrorCode.BucketNotEmpty,
-                                      ERROR_BUCKET_IS_NOT_EMPTY);
-                    return;
-                }
-
-                if (!bucket.delete()) {
-                    signalObjectError(webContext,
-                                      bucketName,
-                                      null,
-                                      S3ErrorCode.InternalError,
-                                      ERROR_FILE_SYSTEM_ACCESS);
-                    return;
-                }
-
+                bucket.delete();
                 signalObjectSuccess(webContext);
                 webContext.respondWith().status(HttpResponseStatus.OK);
             }
