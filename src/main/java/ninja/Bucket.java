@@ -12,6 +12,7 @@ import sirius.kernel.cache.Cache;
 import sirius.kernel.cache.CacheManager;
 import sirius.kernel.commons.Limit;
 import sirius.kernel.commons.Strings;
+import sirius.kernel.commons.Urls;
 import sirius.kernel.health.Exceptions;
 import sirius.kernel.xml.Attribute;
 import sirius.kernel.xml.XMLStructuredOutput;
@@ -102,7 +103,7 @@ public class Bucket {
      * @return the encoded name of the bucket
      */
     public String getEncodedName() {
-        return Strings.urlEncode(getName());
+        return Urls.encode(getName());
     }
 
     /**
@@ -184,7 +185,7 @@ public class Bucket {
                                 int limit,
                                 @Nullable String marker,
                                 @Nullable String prefix) {
-        ListFileTreeVisitor visitor = new ListFileTreeVisitor(output, limit, marker, prefix);
+        ListFileTreeVisitor visitor = new ListFileTreeVisitor(output, limit, marker, prefix, null);
 
         output.beginOutput("ListBucketResult", Attribute.set("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/"));
         output.property("Name", getName());
@@ -204,29 +205,41 @@ public class Bucket {
      * Sends a list of at most the provided number of stored objects using
      * <a href="https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html">V2</a> format.
      *
-     * @param output the xml structured output the list of objects should be written to
-     * @param limit  controls the maximum number of objects returned
-     * @param marker the key to start with when listing objects in a bucket
-     * @param prefix limits the response to keys that begin with the specified prefix
+     * @param output            the XML structured output the list of objects should be written to
+     * @param limit             controls the maximum number of objects returned
+     * @param marker            the key to start with when listing objects in a bucket
+     * @param prefix            limits the response to keys that begin with the specified prefix
+     * @param continuationToken used to specify where the listing should continue from
      */
     public void outputObjectsV2(XMLStructuredOutput output,
                                 int limit,
                                 @Nullable String marker,
-                                @Nullable String prefix) {
-        ListFileTreeVisitor visitor = new ListFileTreeVisitor(output, limit, marker, prefix);
+                                @Nullable String prefix,
+                                @Nullable String continuationToken) {
+        ListFileTreeVisitor visitor = new ListFileTreeVisitor(output, limit, marker, prefix, continuationToken);
 
         output.beginOutput("ListBucketResult", Attribute.set("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/"));
         output.property("Name", getName());
         output.property("MaxKeys", limit);
         output.property("StartAfter", marker);
         output.property("Prefix", prefix);
+        if (Strings.isFilled(continuationToken)) {
+            output.property("ContinuationToken", continuationToken);
+        }
+
         try {
             walkFileTreeOurWay(folder.toPath(), visitor);
         } catch (IOException exception) {
             throw Exceptions.handle(Storage.LOG, exception);
         }
-        output.property("IsTruncated", limit > 0 && visitor.getCount() > limit);
-        output.property("KeyCount", visitor.getCount());
+
+        boolean truncated = limit > 0 && visitor.getCount() > limit;
+        output.property("IsTruncated", truncated);
+        output.property("KeyCount", Math.min(limit, visitor.getCount()));
+        if (truncated) {
+            output.property("NextContinuationToken", visitor.getNextContinuationToken());
+        }
+
         output.endOutput();
     }
 

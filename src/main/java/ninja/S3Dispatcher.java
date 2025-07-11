@@ -19,12 +19,12 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import ninja.errors.S3ErrorCode;
 import ninja.errors.S3ErrorSynthesizer;
 import ninja.queries.S3QueryProcessor;
-import org.asynchttpclient.BoundRequestBuilder;
 import sirius.kernel.async.CallContext;
 import sirius.kernel.commons.Callback;
 import sirius.kernel.commons.Hasher;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.commons.Tuple;
+import sirius.kernel.commons.Urls;
 import sirius.kernel.commons.Value;
 import sirius.kernel.di.GlobalContext;
 import sirius.kernel.di.std.ConfigValue;
@@ -49,7 +49,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetAddress;
-import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -67,7 +66,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
 import static ninja.Aws4HashCalculator.AWS_AUTH4_PATTERN;
@@ -122,9 +120,6 @@ public class S3Dispatcher implements WebDispatcher {
 
     @ConfigValue("storage.multipartDir")
     private String multipartDir;
-
-    @Part
-    private AwsUpstream awsUpstream;
 
     private final Set<String> multipartUploads = Collections.synchronizedSet(new TreeSet<>());
 
@@ -216,7 +211,8 @@ public class S3Dispatcher implements WebDispatcher {
         if (aws4HashCalculator.supports(webContext)
             && HttpMethod.PUT.equals(webContext.getRequest().method())
             && webContext.getHeader("x-amz-decoded-content-length") != null) {
-            return new SignedChunkHandler();
+            // We have to pass the web context to the handler, as it is necessary to access the request
+            return new SignedChunkHandler(webContext);
         } else {
             return new InputStreamHandler();
         }
@@ -695,11 +691,12 @@ public class S3Dispatcher implements WebDispatcher {
         int maxKeys = webContext.get("max-keys").asInt(1000);
         String marker = webContext.get("start-after").asString();
         String prefix = webContext.get("prefix").asString();
+        String continuationToken = webContext.get("continuation-token").asString();
 
         Response response = webContext.respondWith();
         response.setHeader(HTTP_HEADER_NAME_CONTENT_TYPE, CONTENT_TYPE_XML);
 
-        bucket.outputObjectsV2(response.xml(), maxKeys, marker, prefix);
+        bucket.outputObjectsV2(response.xml(), maxKeys, marker, prefix, continuationToken);
     }
 
     /**
@@ -712,20 +709,6 @@ public class S3Dispatcher implements WebDispatcher {
     private void deleteObject(final WebContext webContext, final Bucket bucket, final String id) {
         StoredObject object = bucket.getObject(id);
         object.delete();
-
-        // If it exists online, we mark it locally as "deleted"
-        if (awsUpstream.isConfigured() && awsUpstream.fetchClient().doesObjectExist(bucket.getName(), id)) {
-            try {
-                object.markDeleted();
-            } catch (IOException ignored) {
-                signalObjectError(webContext,
-                                  bucket.getName(),
-                                  id,
-                                  S3ErrorCode.InternalError,
-                                  Strings.apply("Error while marking file as deleted"));
-                return;
-            }
-        }
 
         webContext.respondWith().status(HttpResponseStatus.NO_CONTENT);
         signalObjectSuccess(webContext);
@@ -806,7 +789,7 @@ public class S3Dispatcher implements WebDispatcher {
         }
 
         // parse the path of the source object
-        sourcePath = Strings.urlDecode(sourcePath);
+        sourcePath = Urls.decode(sourcePath);
         int sourceBucketNameStart = sourcePath.startsWith(PATH_DELIMITER) ? PATH_DELIMITER.length() : 0;
         String sourceBucketName =
                 sourcePath.substring(sourceBucketNameStart, sourcePath.indexOf(PATH_DELIMITER, sourceBucketNameStart));
@@ -862,13 +845,6 @@ public class S3Dispatcher implements WebDispatcher {
      */
     private void getObject(WebContext webContext, Bucket bucket, String id, boolean sendFile) throws IOException {
         StoredObject object = bucket.getObject(id);
-        if (!object.exists() && !object.isMarkedDeleted() && awsUpstream.isConfigured()) {
-            URL fetchURL = awsUpstream.generateGetObjectURL(bucket, object, sendFile);
-            Consumer<BoundRequestBuilder> requestTuner =
-                    requestBuilder -> requestBuilder.setMethod(sendFile ? "GET" : "HEAD");
-            webContext.enableTiming(null).respondWith().tunnel(fetchURL.toString(), requestTuner, null, null);
-            return;
-        }
 
         if (!object.exists()) {
             signalObjectError(webContext, bucket.getName(), id, S3ErrorCode.NoSuchKey, "Object does not exist");
