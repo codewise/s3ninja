@@ -22,6 +22,15 @@ pipeline {
                 }
             }
         }
+        stage('Checkout') {
+            steps {
+                checkout scmGit(
+                        branches: [[name: "*/${branch}"]],
+                        extensions: [],
+                        userRemoteConfigs: [[url: 'git@github.com:codewise/s3ninja.git']]
+                )
+            }
+        }
         stage('Build') {
             steps {
                 sh """
