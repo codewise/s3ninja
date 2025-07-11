@@ -216,7 +216,7 @@ public class S3Dispatcher implements WebDispatcher {
         if (aws4HashCalculator.supports(webContext)
             && HttpMethod.PUT.equals(webContext.getRequest().method())
             && webContext.getHeader("x-amz-decoded-content-length") != null) {
-            return new SignedChunkHandler();
+            return new SignedChunkHandler(webContext);
         } else {
             return new InputStreamHandler();
         }
