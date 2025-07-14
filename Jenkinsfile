@@ -1,8 +1,8 @@
 pipeline {
     agent {
         kubernetes {
-            inheritFrom 'maven-21-docker-large'
-            defaultContainer 'maven-java-21'
+            inheritFrom 'maven-java-23-zp'
+            defaultContainer 'maven-java-23'
         }
     }
 
